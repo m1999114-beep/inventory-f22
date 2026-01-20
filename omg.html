@@ -1343,25 +1343,50 @@
         <!-- Dashboard 頁面 -->
         <div id="page-dashboard" class="page active">
             <div class="px-5 py-6 space-y-6">
-                <!-- Stock Distribution Chart -->
-                <div class="bg-zinc-900/70 backdrop-blur-xl border border-zinc-700/50 shadow-2xl rounded-3xl p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="text-2xl">📊</span>
-                        <h3 class="text-lg font-bold text-white">庫存分佈</h3>
+                <!-- 智慧補貨建議卡片 -->
+                <div id="replenishCard"
+                    class="bg-gradient-to-br from-yellow-900/30 to-orange-900/20 backdrop-blur-xl border border-yellow-600/30 shadow-2xl rounded-3xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🚨</span>
+                            <h3 class="text-lg font-bold text-yellow-300">智慧補貨建議</h3>
+                        </div>
+                        <button id="copyPurchaseListBtn" onclick="copyPurchaseList()"
+                            class="btn-interactive px-4 py-2 rounded-xl bg-yellow-600/30 text-yellow-300 text-sm font-bold border border-yellow-500/40 hover:bg-yellow-600/50 transition-all">
+                            📋 複製採購清單
+                        </button>
                     </div>
-                    <div class="h-64 flex items-center justify-center">
-                        <canvas id="stockChart"></canvas>
+                    <div id="replenishList" class="space-y-3">
+                        <!-- 緊急補貨清單將在這裡動態生成 -->
+                        <p class="text-gray-500 text-sm">載入中...</p>
                     </div>
                 </div>
+
+
+
+
 
                 <!-- 分類統計條 -->
                 <div class="bg-zinc-900/70 backdrop-blur-xl border border-zinc-700/50 shadow-2xl rounded-3xl p-6">
                     <div class="flex items-center gap-2 mb-4">
                         <span class="text-2xl">📈</span>
                         <h3 class="text-lg font-bold text-white">分類統計</h3>
+                        <span class="text-xs text-gray-500 ml-2">（點擊類別可篩選）</span>
                     </div>
                     <div id="categoryBar" class="h-4 rounded-full bg-white/5 flex overflow-hidden mb-4"></div>
                     <div id="categoryLegend" class="flex flex-wrap gap-4 text-sm text-gray-300"></div>
+                </div>
+
+                <!-- 呆滯物料警示 -->
+                <div id="staleItemsCard"
+                    class="hidden bg-gradient-to-br from-red-900/30 to-pink-900/20 backdrop-blur-xl border border-red-600/30 shadow-2xl rounded-3xl p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-2xl">⏰</span>
+                        <h3 class="text-lg font-bold text-red-300">呆滯物料警示</h3>
+                        <span class="text-xs text-gray-500">（超過 30 天未變動）</span>
+                    </div>
+                    <div id="staleItemsList" class="space-y-2 max-h-48 overflow-y-auto">
+                    </div>
                 </div>
 
                 <!-- F22廠區物料清單 -->
@@ -1371,8 +1396,11 @@
                             <span class="text-3xl">🏗️</span>
                             <h3 class="text-xl font-bold text-white">F22廠區物料</h3>
                         </div>
-                        <span id="siteItemCount"
-                            class="text-sm px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/30 to-cyan-400/20 text-cyan-300 font-bold border border-cyan-400/40 shadow-lg shadow-cyan-500/20">-</span>
+                        <div class="flex items-center gap-2">
+                            <span id="siteFilterLabel" class="text-xs text-gray-500 hidden">篩選：</span>
+                            <span id="siteItemCount"
+                                class="text-sm px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/30 to-cyan-400/20 text-cyan-300 font-bold border border-cyan-400/40 shadow-lg shadow-cyan-500/20">-</span>
+                        </div>
                     </div>
                     <div id="siteItemsList" class="space-y-2.5 max-h-96 overflow-y-auto">
                         <!-- 物料項目將在這裡動態生成 -->
@@ -1750,8 +1778,7 @@
                 // 操作人員清單
                 var OPERATORS = ['黃俊瑋', '戴庭宇', '徐伊恩'];
 
-                // Chart.js instance for stock distribution chart
-                var stockChartInstance = null;
+
 
                 // Fuse.js instance for fuzzy search
                 var fuseInstance = null;
@@ -2352,8 +2379,9 @@
                         if (categoryCounts[cat] > 0) {
                             var pct = (categoryCounts[cat] / totalQty * 100).toFixed(1);
                             var config = categoryConfig[cat];
-                            barHtml += '<div class="category-bar-item" style="width:' + pct + '%; background: linear-gradient(90deg, ' + config.color + ', ' + config.color + 'dd);"></div>';
-                            legendHtml += '<span class="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/5">' +
+                            var isActive = dashboardFilter.category === cat;
+                            barHtml += '<div class="category-bar-item cursor-pointer hover:opacity-80 transition-opacity" style="width:' + pct + '%; background: linear-gradient(90deg, ' + config.color + ', ' + config.color + 'dd);" onclick="filterSiteByCategory(\'' + cat + '\')"></div>';
+                            legendHtml += '<span class="flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer transition-all hover:scale-105 ' + (isActive ? 'bg-white/20 ring-2 ring-white/30' : 'bg-white/5 border border-white/5') + '" onclick="filterSiteByCategory(\'' + cat + '\')">' +
                                 '<span style="color:' + config.color + '; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">' + config.icon + '</span>' +
                                 '<span class="font-semibold">' + config.label + '</span>' +
                                 '<span class="text-gray-500 font-bold">' + pct + '%</span>' +
@@ -2364,70 +2392,28 @@
                     el.categoryBar.innerHTML = barHtml;
                     el.categoryLegend.innerHTML = legendHtml;
 
-                    // ===== Chart.js - Stock Distribution Doughnut =====
-                    var totalWarehouse = 0;
-                    var totalSite = 0;
-                    for (var i = 0; i < state.stock.length; i++) {
-                        totalWarehouse += safeNum(state.stock[i].warehouseQty);
-                        totalSite += safeNum(state.stock[i].siteQty);
-                    }
 
-                    var chartCanvas = document.getElementById('stockChart');
-                    if (chartCanvas && typeof Chart !== 'undefined') {
-                        // Destroy previous instance if exists
-                        if (stockChartInstance) {
-                            stockChartInstance.destroy();
-                        }
 
-                        stockChartInstance = new Chart(chartCanvas, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['公司倉', 'F22廠區'],
-                                datasets: [{
-                                    data: [totalWarehouse, totalSite],
-                                    backgroundColor: ['rgba(168, 85, 247, 0.8)', 'rgba(34, 211, 238, 0.8)'],
-                                    borderColor: ['#a855f7', '#22d3ee'],
-                                    borderWidth: 2,
-                                    hoverBorderWidth: 4
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                cutout: '60%',
-                                plugins: {
-                                    legend: {
-                                        position: 'bottom',
-                                        labels: {
-                                            color: '#ffffff',
-                                            font: { size: 14, weight: 'bold' },
-                                            padding: 20
-                                        }
-                                    },
-                                    tooltip: {
-                                        backgroundColor: 'rgba(24, 24, 27, 0.95)',
-                                        titleColor: '#ffffff',
-                                        bodyColor: '#d4d4d8',
-                                        borderColor: 'rgba(63, 63, 70, 0.5)',
-                                        borderWidth: 1,
-                                        padding: 12,
-                                        bodyFont: { size: 14 }
-                                    }
-                                }
-                            }
-                        });
-                    }
+                    // 更新智慧決策模組
+                    updateReplenishSuggestions();
+                    updateStaleItems();
 
                     // 更新F22廠區物料清單
                     renderSiteItems();
                 }
 
                 function renderSiteItems() {
-                    // 篩選出F22廠區有庫存的物料
+                    // 篩選出F22廠區有庫存的物料，並應用分類過濾
                     var siteItems = [];
                     for (var i = 0; i < state.stock.length; i++) {
                         var item = state.stock[i];
+                        // 基礎條件：F22 有庫存
                         if (safeNum(item.siteQty) > 0) {
+                            // 過濾條件：若有選定分類，則需確認分類相符
+                            if (dashboardFilter.category) {
+                                var itemCat = getCategory(item);
+                                if (itemCat !== dashboardFilter.category) continue;
+                            }
                             siteItems.push(item);
                         }
                     }
@@ -2474,6 +2460,193 @@
                     }
 
                     el.siteItemsList.innerHTML = html;
+                }
+
+                // ===== 智慧決策模組 =====
+                var dashboardFilter = {
+                    category: null // 當前選中的分類，null 表示全部
+                };
+
+                // 更新智慧補貨建議
+                function updateReplenishSuggestions() {
+                    var replenishList = document.getElementById('replenishList');
+                    if (!replenishList) return;
+
+                    // 篩選低庫存物料並計算缺口
+                    var lowStockItems = [];
+                    for (var i = 0; i < state.stock.length; i++) {
+                        var item = state.stock[i];
+                        var total = safeNum(item.warehouseQty) + safeNum(item.siteQty);
+                        var safe = safeNum(item.safeQty, 1);
+                        if (total < safe) {
+                            lowStockItems.push({
+                                item: item,
+                                shortage: safe - total,
+                                urgency: (safe - total) / safe // 緊急度：缺口比例
+                            });
+                        }
+                    }
+
+                    // 按緊急度排序
+                    lowStockItems.sort(function (a, b) {
+                        return b.urgency - a.urgency;
+                    });
+
+                    if (lowStockItems.length === 0) {
+                        replenishList.innerHTML = '<p class="text-green-400 text-sm font-medium">✅ 所有物料庫存充足！</p>';
+                        return;
+                    }
+
+                    // 顯示前 3 名最緊急的
+                    var html = '<div class="text-sm text-gray-400 mb-3">共 <span class="text-yellow-300 font-bold">' + lowStockItems.length + '</span> 項需要補貨</div>';
+                    var top3 = lowStockItems.slice(0, 3);
+
+                    for (var i = 0; i < top3.length; i++) {
+                        var data = top3[i];
+                        var item = data.item;
+                        var urgencyColor = data.urgency > 0.8 ? 'text-red-400' : data.urgency > 0.5 ? 'text-yellow-400' : 'text-orange-400';
+
+                        html += '<div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">' +
+                            '<div class="flex-1 min-w-0">' +
+                            '<p class="text-white font-bold truncate">' + escapeHtml(safeStr(item.spec, '-')) + '</p>' +
+                            '<p class="text-xs text-gray-500 truncate">' + escapeHtml(safeStr(item.name, '')) + '</p>' +
+                            '</div>' +
+                            '<div class="text-right ml-3">' +
+                            '<p class="' + urgencyColor + ' font-black text-lg">缺 ' + Math.ceil(data.shortage) + '</p>' +
+                            '<p class="text-xs text-gray-600">安全量 ' + safeNum(item.safeQty) + '</p>' +
+                            '</div>' +
+                            '</div>';
+                    }
+
+                    replenishList.innerHTML = html;
+                }
+
+
+
+                // 一鍵複製採購清單
+                function copyPurchaseList() {
+                    var lowStockItems = [];
+                    for (var i = 0; i < state.stock.length; i++) {
+                        var item = state.stock[i];
+                        var total = safeNum(item.warehouseQty) + safeNum(item.siteQty);
+                        var safe = safeNum(item.safeQty, 1);
+                        if (total < safe) {
+                            lowStockItems.push({
+                                name: safeStr(item.name, ''),
+                                spec: safeStr(item.spec, '-'),
+                                unit: safeStr(item.unit, '個'),
+                                shortage: Math.ceil(safe - total)
+                            });
+                        }
+                    }
+
+                    if (lowStockItems.length === 0) {
+                        toast('沒有需要補貨的物料！', 'info');
+                        return;
+                    }
+
+                    // 生成採購清單文字
+                    var text = '📋 採購清單 (' + formatDateTime(new Date()) + ')\n';
+                    text += '═══════════════════════════\n';
+                    for (var i = 0; i < lowStockItems.length; i++) {
+                        var item = lowStockItems[i];
+                        text += (i + 1) + '. ' + item.name + ' (' + item.spec + ')\n';
+                        text += '   建議採購：' + item.shortage + ' ' + item.unit + '\n';
+                    }
+                    text += '═══════════════════════════\n';
+                    text += '共 ' + lowStockItems.length + ' 項\n';
+
+                    // 複製到剪貼簿
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(text).then(function () {
+                            hapticFeedback('success');
+                            toast('✅ 採購清單已複製！', 'success');
+                        }).catch(function () {
+                            toast('複製失敗，請手動複製', 'error');
+                        });
+                    } else {
+                        toast('瀏覽器不支援複製功能', 'warning');
+                    }
+                }
+
+                // 呆滯物料分析 (30天未變動)
+                function updateStaleItems() {
+                    var card = document.getElementById('staleItemsCard');
+                    var list = document.getElementById('staleItemsList');
+                    if (!card || !list) return;
+
+                    var now = new Date();
+                    var staleCount = 0;
+                    var html = '';
+
+                    // 模擬數據：如果有 last_updated 欄位則使用，否則隨機模擬幾個（僅供演示，實際應接後端）
+                    // 在此版本中，我們檢查 item.lastUpdated (假設格式為 ISO 字串或 Date 物件)
+                    // 如果沒有 lastUpdated，我們暫時不顯示，避免誤判
+
+                    var staleItems = [];
+                    for (var i = 0; i < state.stock.length; i++) {
+                        var item = state.stock[i];
+                        if (item.lastUpdated) {
+                            var lastUpdate = new Date(item.lastUpdated);
+                            var diffTime = Math.abs(now - lastUpdate);
+                            var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                            if (diffDays > 30) {
+                                staleItems.push({
+                                    item: item,
+                                    days: diffDays
+                                });
+                            }
+                        }
+                    }
+
+                    // 按呆滯天數排序
+                    staleItems.sort(function (a, b) {
+                        return b.days - a.days;
+                    });
+
+                    if (staleItems.length === 0) {
+                        card.classList.add('hidden');
+                        return;
+                    }
+
+                    card.classList.remove('hidden');
+
+                    var displayItems = staleItems.slice(0, 3); // 顯示前3名
+                    for (var i = 0; i < displayItems.length; i++) {
+                        var data = displayItems[i];
+                        html += '<div class="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5">' +
+                            '<span class="text-white text-sm font-medium truncate flex-1">' + escapeHtml(safeStr(data.item.name)) + '</span>' +
+                            '<span class="text-red-300 text-xs font-bold whitespace-nowrap ml-2">' + data.days + ' 天未動</span>' +
+                            '</div>';
+                    }
+
+                    if (staleItems.length > 3) {
+                        html += '<p class="text-center text-xs text-red-300/70 mt-2">還有 ' + (staleItems.length - 3) + ' 項...</p>';
+                    }
+
+                    list.innerHTML = html;
+                }
+
+                // 分類聯動過濾（點擊分類統計中的類別）
+                function filterSiteByCategory(category) {
+                    if (dashboardFilter.category === category) {
+                        dashboardFilter.category = null; // 再次點擊則取消篩選
+                    } else {
+                        dashboardFilter.category = category;
+                    }
+                    renderSiteItems();
+
+                    // 更新篩選標籤顯示
+                    var label = document.getElementById('siteFilterLabel');
+                    if (label) {
+                        if (dashboardFilter.category) {
+                            label.classList.remove('hidden');
+                            label.textContent = '篩選：' + (categoryConfig[category] ? categoryConfig[category].label : '全部');
+                        } else {
+                            label.classList.add('hidden');
+                        }
+                    }
                 }
 
                 // ===== 列表渲染 =====
